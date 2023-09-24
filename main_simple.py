@@ -11,32 +11,7 @@ import pandas as pd
 
 warnings.simplefilter('ignore', category = u.UnitsWarning)
 
-table = pd.DataFrame(columns = [ "Star Name", "Year", "RA (hms)", "RA (degree)", "Dec (hms)", "Dec (degree)", "Angular Separation (degree)", "Proper Motions (arcsec / yr)", "Proper Motion AVG (arcsec / yr)" ])
-
-# Haversine formula to find the angular separation between two points
-def haversine(lon1, lat1, lon2, lat2):
-    """
-    Calculate the great circle distance in kilometers between two points 
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians 
-
-    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
-
-    # haversine formula 
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
-
-    print(dlon, dlat)
-    s1 = np.sin(dlat/2)**2
-    print(s1)
-    s2 = np.sin(dlon/2)**2
-    print(s2)
-    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
-    print(a)
-    c = 2 * np.arcsin(np.sqrt(a))
-    print(c)
-    return c
+table = pd.DataFrame(columns = [ "Star Name", "Year", "RA (hms)", "RA (degree)", "Angular Separation (deg)", "Proper Motions (arcsec / yr)", "Proper Motion AVG (arcsec / yr)" ])
 
 ts = load.timescale()
 
@@ -56,9 +31,7 @@ def dd(y0, yf, n, star_name):
 
     
     ra_list = []
-    dec_list = []
     ra_deg_list = []
-    dec_deg_list = []
     as_list = []
     pm_list = []
 
@@ -67,29 +40,26 @@ def dd(y0, yf, n, star_name):
         t = ts.tt(y, 1, 1, 0, 0, 0)
         star = Star.from_dataframe(df.loc[HIP])
         astro = earth.at(t).observe(star)
-        ra, dec, _ = astro.radec()
+        ra, _, _ = astro.radec()
         ra_list.append(ra)
-        dec_list.append(dec)
         ra_deg = ra.hours * 15
-        dec_deg = dec.degrees
         ra_deg_list.append(ra_deg[0])
-        dec_deg_list.append(dec_deg[0])
 
     pm = 0
 
     for i in range(len(ra_deg_list) - 1):
         ra1, ra2 = ra_deg_list[i], ra_deg_list[i + 1]
-        dec1, dec2 = dec_deg_list[i], dec_deg_list[i + 1]
 
-        AS = Angle(haversine(ra1, dec1, ra2, dec2), unit = u.rad)
+        AS = Angle(ra2 - ra1, unit = u.deg)
         as_list.append(AS.to(u.deg).value)
         pm = pm + AS.to(u.arcsec) / (years * u.year)
         pm_list.append(pm)
- 
+    
+    PM = sum(pm_list)/len(pm_list)
     ys = [str(y) for y in ys]
     # table = pd.DataFrame(columns = [ "Star Name", "Years", "RA", "Dec", "Angular Separation", "Proper Motion" ])
     # table.loc[len(table)] = [star_name, ys, sum(ra_list)/len(ra_list), sum(dec_list)/len(dec_list), sum(as_list)/len(as_list), pm.value] 
-    table.loc[len(table)] = [star_name, ys, ra_list, ra_deg_list, dec_list, dec_deg_list, as_list, pm_list, pm.value] 
+    table.loc[len(table)] = [star_name, ys, ra_list, ra_deg_list, as_list, pm_list, PM] 
     return pm.value
 
 # Function that returns the proper motion of star(s) in arcsec / year
@@ -103,5 +73,6 @@ def proper_motion(y0, yf, n, star_name):
     else:
         return dd(y0, yf, n, star_name)
 
-pm = proper_motion(2000, 2001, 2, [ "Proxima Centauri", "Barnard's Star", "Vega"])
+# pm = proper_motion(2000, 2010, 5, [ "Proxima Centauri", "Barnard's Star", "61 Cygni A"])
+pm = proper_motion(2000, 2010, 2, ["Proxima Centauri", "Vega", "Fang"])
 print(table.to_markdown())
