@@ -1,7 +1,4 @@
 import matplotlib.pyplot as plt
-from skyfield.api import Star, load
-from skyfield.data import hipparcos
-from astroquery.vizier import Vizier
 from astropy import units as u
 import numpy as np
 from astropy.coordinates import SkyCoord, Angle, angular_separation
@@ -11,68 +8,88 @@ import pandas as pd
 
 warnings.simplefilter('ignore', category = u.UnitsWarning)
 
-table = pd.DataFrame(columns = [ "Star Name", "Year", "RA (hms)", "RA (degree)", "Angular Separation (deg)", "Proper Motions (arcsec / yr)", "Proper Motion AVG (arcsec / yr)" ])
+table = pd.DataFrame(columns = [ "Star Name", "Year", "RA (hms)", "RA (degree)", "Dec (hms)", "Dec (degree)", "Angular Separation (degree)", "Proper Motions (arcsec / yr)", "Proper Motion AVG (arcsec / yr)" ])
 
-ts = load.timescale()
-
-# Load the planets data
-planets = load('de421.bsp')
-earth = planets["earth"]
-
-# Helper function to find the proper motion
-def dd(y0, yf, n, star_name):
-    star = Vizier.query_object(star_name)
-    HIP = star["I/239/hip_main"]["HIP"]
-    ys = np.linspace(y0, yf, n)
-    years = yf - y0
-
-    with load.open(hipparcos.URL) as f:
-        df = hipparcos.load_dataframe(f)
-
+# Haversine formula to find the angular separation between two points
+def haversine(ra1, dec1, ra2, dec2):
+    """
+    Calculate the great circle distance in kilometers between two points 
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians 
     
-    ra_list = []
-    ra_deg_list = []
-    as_list = []
-    pm_list = []
+    print("RA1 = ", ra1)
+    print("DEC1 = ", dec1)
+    print("RA2 = ", ra2)
+    print("DEC2 = ", dec2)
+    print("")
 
-    for y in ys:
-        # years, month, day, hour, minute, seconds
-        t = ts.tt(y, 1, 1, 0, 0, 0)
-        star = Star.from_dataframe(df.loc[HIP])
-        astro = earth.at(t).observe(star)
-        ra, _, _ = astro.radec()
-        ra_list.append(ra)
-        ra_deg = ra.hours * 15
-        ra_deg_list.append(ra_deg[0])
-
-    pm = 0
-
-    for i in range(len(ra_deg_list) - 1):
-        ra1, ra2 = ra_deg_list[i], ra_deg_list[i + 1]
-
-        AS = Angle(ra2 - ra1, unit = u.deg)
-        as_list.append(AS.to(u.deg).value)
-        pm = pm + AS.to(u.arcsec) / (years * u.year)
-        pm_list.append(pm)
+    ra1, dec1, ra2, dec2 = map(np.radians, [ra1, dec1, ra2, dec2])
     
-    PM = sum(pm_list)/len(pm_list)
-    ys = [str(y) for y in ys]
-    # table = pd.DataFrame(columns = [ "Star Name", "Years", "RA", "Dec", "Angular Separation", "Proper Motion" ])
-    # table.loc[len(table)] = [star_name, ys, sum(ra_list)/len(ra_list), sum(dec_list)/len(dec_list), sum(as_list)/len(as_list), pm.value] 
-    table.loc[len(table)] = [star_name, ys, ra_list, ra_deg_list, as_list, pm_list, PM] 
-    return pm.value
+    ra1 = np.round(ra1, 6)
+    dec1 = np.round(dec1, 6)
+    ra2 = np.round(ra2, 6)
+    dec2 = np.round(dec2, 6)
 
-# Function that returns the proper motion of star(s) in arcsec / year
-def proper_motion(y0, yf, n, star_name):
+
+    print("RA1 = ", ra1)
+    print("DEC1 = ", dec1)
+    print("RA2 = ", ra2)
+    print("DEC2 = ", dec2)
+    print("")
+
+    # haversine formula 
+    dra = np.round(ra2 - ra1, 6)
+    ddec = np.round(dec2 - dec1, 6)
+
+
+    print("DRA = ", dra)
+    print("DDEC = ", ddec)
     
-    if type(star_name) == list:
-        pm_list = []
-        for name in star_name:
-            pm_list.append(dd(y0, yf, n, name))
-        return pm_list
-    else:
-        return dd(y0, yf, n, star_name)
+    print("")
 
-# pm = proper_motion(2000, 2010, 5, [ "Proxima Centauri", "Barnard's Star", "61 Cygni A"])
-pm = proper_motion(2000, 2010, 2, ["Proxima Centauri", "Vega", "Fang"])
-print(table.to_markdown())
+    s1 = np.round(np.sin(ddec/2)**2, 10)
+
+    print("S_DDEC = ", s1)
+
+    s2 = np.round(np.sin(dra/2)**2, 10)
+
+    print("S_DRA = ", s2)
+    print("")
+
+    a = np.round(s1 + np.cos(dec1) * np.cos(dec2) * s2, 10)
+    c = 2 * np.arcsin(np.sqrt(a))
+    return c
+
+def proper_motion(ra1, dec1, ra2, dec2, dt):
+
+    print("RA1 = ", ra1)
+    print("DEC1 = ", dec1)
+    print("RA2 = ", ra2)
+    print("DEC2 = ", dec2)
+    print("")
+    
+    ra1 = np.round(Angle(ra1, unit = u.deg).hour * 15, 5)
+    dec1 = np.round(Angle(dec1).degree, 5)
+    ra2 = np.round(Angle(ra2, unit = u.degree).hour * 15, 5)
+    dec2 = np.round(Angle(dec2).degree, 5)
+
+    AS = np.round(haversine(ra1, dec1, ra2, dec2), 7)
+    print("AS (Rad) = ", AS)
+    AS = np.degrees(AS)
+    print("AS (Deg) = ", AS)
+    AS = AS * 3600
+    print("AS (arcseconds) = ", AS)
+
+    pm = AS / dt
+
+    print("Proper motion (arcsecond / yr) = ", pm)
+
+print("Barnard's Star")
+proper_motion("17h57m47.13s", "4d41m34.1s", "17h57m46.64s", "4d43m17.1s", 10) # Bernard's Star
+print("\nProxima Centauri")
+proper_motion("14h29m46.17", "-62d40m36.9s", "14h29m40.96s", "-62d40m22.9", 10) # Proxima Centauri
+print("\nVega")
+proper_motion("18h36m54.56s", "38d47m0.1s", "18h36m54.64s", "38d47m3.4s", 10) # Vega
+print("\nSirius")
+proper_motion("6h45m10.36s", "-16d42m59.2s", "6h45m9.93s", "-16d43m12.1s", 10) # Sirius

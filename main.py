@@ -14,28 +14,21 @@ warnings.simplefilter('ignore', category = u.UnitsWarning)
 table = pd.DataFrame(columns = [ "Star Name", "Year", "RA (hms)", "RA (degree)", "Dec (hms)", "Dec (degree)", "Angular Separation (degree)", "Proper Motions (arcsec / yr)", "Proper Motion AVG (arcsec / yr)" ])
 
 # Haversine formula to find the angular separation between two points
-def haversine(lon1, lat1, lon2, lat2):
+def haversine(ra1, dec1, ra2, dec2):
     """
     Calculate the great circle distance in kilometers between two points 
     on the earth (specified in decimal degrees)
     """
     # convert decimal degrees to radians 
 
-    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+    ra1, dec1, ra2, dec2 = map(np.radians, [ra1, dec1, ra2, dec2])
 
     # haversine formula 
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
+    dra = ra2 - ra1 
+    ddec = dec2 - dec1 
 
-    print(dlon, dlat)
-    s1 = np.sin(dlat/2)**2
-    print(s1)
-    s2 = np.sin(dlon/2)**2
-    print(s2)
-    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
-    print(a)
+    a = np.sin(ddec/2)**2 + np.cos(dec1) * np.cos(dec2) * np.sin(dra/2)**2
     c = 2 * np.arcsin(np.sqrt(a))
-    print(c)
     return c
 
 ts = load.timescale()
